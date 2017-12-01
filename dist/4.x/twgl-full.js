@@ -3,15 +3,8 @@
  * Available via the MIT license.
  * see: http://github.com/greggman/twgl.js for details
  */
-(function webpackUniversalModuleDefinition(root, factory) {
-	if(typeof exports === 'object' && typeof module === 'object')
-		module.exports = factory();
-	else if(typeof define === 'function' && define.amd)
-		define([], factory);
-	else if(typeof exports === 'object')
-		exports["twgl"] = factory();
-	else
-		root["twgl"] = factory();
+ export default (function webpackUniversalModuleDefinition(root, factory) {
+  return factory();
 })(this, function() {
 return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -2686,7 +2679,7 @@ function getNormalizationForTypedArrayType(typedArrayType) {
 }
 
 function getArray(array) {
-  return array.length ? array : array.data;
+  return array.length !==undefined ? array : array.data;
 }
 
 var texcoordRE = /coord|texture/i;
