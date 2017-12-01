@@ -90,6 +90,7 @@ module.exports = function(grunt) {
     'src/programs.js',
     'src/textures.js',
     'src/typedarrays.js',
+    'src/utils.js',
     'src/vertex-arrays.js',
   ];
 
@@ -113,7 +114,6 @@ module.exports = function(grunt) {
         options: {
           destination: 'docs',
           configure: 'build/jsdoc.conf.json',
-//          template: 'build/jsdoc-template/template',
           template: './node_modules/minami',
           outputSourceFiles: false,
         },
@@ -245,7 +245,7 @@ module.exports = function(grunt) {
           'src/*',
         ],
         options: {
-          configFile: 'build/conf/eslint.json',
+          //configFile: 'build/conf/eslint.json',
           //rulesdir: ['build/rules'],
         },
       },
@@ -256,7 +256,7 @@ module.exports = function(grunt) {
           'examples/js',
         ],
         options: {
-          configFile: 'build/conf/eslint-docs.json',
+          //configFile: 'build/conf/eslint-docs.json',
           //rulesdir: ['build/rules'],
         },
       },
@@ -352,7 +352,7 @@ module.exports = function(grunt) {
     p.scripts = {};
     p.devDependencies = {};
     p.main = `dist/${verDir}/twgl.js`;
-    p.files = [ `dist/${verDir}/twgl.js` ];
+    p.files = [ `dist/${  verDir}/twgl.js` ];
     fs.writeFileSync("npm/base/package.json", JSON.stringify(p, null, 2), {encoding: "utf8"});
   });
 

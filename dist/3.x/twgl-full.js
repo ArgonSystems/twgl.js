@@ -1,5 +1,5 @@
 /*!
- * @license twgl.js 3.6.0 Copyright (c) 2015, Gregg Tavares All Rights Reserved.
+ * @license twgl.js 3.8.1 Copyright (c) 2015, Gregg Tavares All Rights Reserved.
  * Available via the MIT license.
  * see: http://github.com/greggman/twgl.js for details
  */
@@ -398,16 +398,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /**
 	   * Resize a canvas to match the size it's displayed.
 	   * @param {HTMLCanvasElement} canvas The canvas to resize.
-	   * @param {number} [multiplier] So you can pass in `window.devicePixelRatio` if you want to.
+	   * @param {number} [multiplier] So you can pass in `window.devicePixelRatio` or other scale value if you want to.
 	   * @return {boolean} true if the canvas was resized.
 	   * @memberOf module:twgl
 	   */
 	  function resizeCanvasToDisplaySize(canvas, multiplier) {
 	    multiplier = multiplier || 1;
-	    multiplier = Math.max(1, multiplier);
-	    var bounds = canvas.getBoundingClientRect();
-	    var width = Math.round(bounds.width * multiplier);
-	    var height = Math.round(bounds.height * multiplier);
+	    multiplier = Math.max(0, multiplier);
+	    var width = canvas.clientWidth * multiplier | 0;
+	    var height = canvas.clientHeight * multiplier | 0;
 	    if (canvas.width !== width || canvas.height !== height) {
 	      canvas.width = width;
 	      canvas.height = height;
@@ -557,7 +556,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * into it.
 	   *
 	   * @param {WebGLRenderingContext} gl A WebGLRenderingContext
-	   * @param {ArrayBuffer|ArrayBufferView|WebGLBuffer} typedArray the typed array. Note: If a WebGLBuffer is passed in it will just be returned. No action will be taken
+	   * @param {ArrayBuffer|SharedArrayBuffer|ArrayBufferView|WebGLBuffer} typedArray the typed array. Note: If a WebGLBuffer is passed in it will just be returned. No action will be taken
 	   * @param {number} [type] the GL bind type for the buffer. Default = `gl.ARRAY_BUFFER`.
 	   * @param {number} [drawType] the GL draw type for the buffer. Default = 'gl.STATIC_DRAW`.
 	   * @return {WebGLBuffer} the created WebGLBuffer
@@ -676,7 +675,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /**
 	   * Use this type of array spec when TWGL can't guess the type or number of compoments of an array
 	   * @typedef {Object} FullArraySpec
-	   * @property {(number|number[]|ArrayBuffer)} data The data of the array. A number alone becomes the number of elements of type.
+	   * @property {(number|number[]|ArrayBufferView)} data The data of the array. A number alone becomes the number of elements of type.
 	   * @property {number} [numComponents] number of components for `vertexAttribPointer`. Default is based on the name of the array.
 	   *    If `coord` is in the name assumes `numComponents = 2`.
 	   *    If `color` is in the name assumes `numComponents = 4`.
@@ -698,11 +697,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /**
 	   * An individual array in {@link module:twgl.Arrays}
 	   *
-	   * When passed to {@link module:twgl.createBufferInfoFromArrays} if an ArraySpec is `number[]` or `ArrayBuffer`
+	   * When passed to {@link module:twgl.createBufferInfoFromArrays} if an ArraySpec is `number[]` or `ArrayBufferView`
 	   * the types will be guessed based on the name. `indices` will be `Uint16Array`, everything else will
 	   * be `Float32Array`. If an ArraySpec is a number it's the number of floats for an empty (zeroed) buffer.
 	   *
-	   * @typedef {(number|number[]|ArrayBuffer|module:twgl.FullArraySpec)} ArraySpec
+	   * @typedef {(number|number[]|ArrayBufferView|module:twgl.FullArraySpec)} ArraySpec
 	   * @memberOf module:twgl
 	   */
 
@@ -1349,9 +1348,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return CTOR;
 	  }
 
-	  function isArrayBuffer(a) {
+	  var isArrayBuffer = window.SharedArrayBuffer ? function isArrayBufferOrSharedArrayBuffer(a) {
+	    return a && a.buffer && (a.buffer instanceof ArrayBuffer || a.buffer instanceof window.SharedArrayBuffer);
+	  } : function isArrayBuffer(a) {
 	    return a && a.buffer && a.buffer instanceof ArrayBuffer;
-	  }
+	  };
 
 	  // Using quotes prevents Uglify from changing the names.
 	  return {
@@ -1463,7 +1464,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   */
 	  function isWebGL2(gl) {
 	    // This is the correct check but it's slow
-	    //return gl.getParameter(gl.VERSION).indexOf("WebGL 2.0") === 0;
+	    //  return gl.getParameter(gl.VERSION).indexOf("WebGL 2.0") === 0;
 	    // This might also be the correct check but I'm assuming it's slow-ish
 	    // return gl instanceof WebGL2RenderingContext;
 	    return !!gl.texStorage2D;
@@ -1563,19 +1564,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * @param {enum} [type] eg (gl.TRIANGLES, gl.LINES, gl.POINTS, gl.TRIANGLE_STRIP, ...). Defaults to `gl.TRIANGLES`
 	   * @param {number} [count] An optional count. Defaults to bufferInfo.numElements
 	   * @param {number} [offset] An optional offset. Defaults to 0.
+	   * @param {number} [instanceCount] An optional instanceCount. if set then `drawArraysInstanced` or `drawElementsInstanced` will be called
 	   * @memberOf module:twgl/draw
 	   */
 
-	  function drawBufferInfo(gl, bufferInfo, type, count, offset) {
+	  function drawBufferInfo(gl, bufferInfo, type, count, offset, instanceCount) {
 	    type = type === undefined ? gl.TRIANGLES : type;
 	    var indices = bufferInfo.indices;
 	    var elementType = bufferInfo.elementType;
 	    var numElements = count === undefined ? bufferInfo.numElements : count;
 	    offset = offset === undefined ? 0 : offset;
 	    if (elementType || indices) {
-	      gl.drawElements(type, numElements, elementType === undefined ? gl.UNSIGNED_SHORT : bufferInfo.elementType, offset);
+	      if (instanceCount !== undefined) {
+	        gl.drawElementsInstanced(type, numElements, elementType === undefined ? gl.UNSIGNED_SHORT : bufferInfo.elementType, offset, instanceCount);
+	      } else {
+	        gl.drawElements(type, numElements, elementType === undefined ? gl.UNSIGNED_SHORT : bufferInfo.elementType, offset);
+	      }
 	    } else {
-	      gl.drawArrays(type, offset, numElements);
+	      if (instanceCount !== undefined) {
+	        gl.drawArraysInstanced(type, offset, numElements, instanceCount);
+	      } else {
+	        gl.drawArrays(type, offset, numElements);
+	      }
 	    }
 	  }
 
@@ -1611,6 +1621,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   *
 	   * @property {number} [offset] the offset to pass to `gl.drawArrays` or `gl.drawElements`. Defaults to 0.
 	   * @property {number} [count] the count to pass to `gl.drawArrays` or `gl.drawElemnts`. Defaults to bufferInfo.numElements.
+	   * @property {number} [instanceCount] the number of instances. Defaults to undefined.
 	   * @memberOf module:twgl
 	   */
 
@@ -1657,7 +1668,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      programs.setUniforms(programInfo, object.uniforms);
 
 	      // Draw
-	      drawBufferInfo(gl, bufferInfo, type, object.count, object.offset);
+	      drawBufferInfo(gl, bufferInfo, type, object.count, object.offset, object.instanceCount);
 	    });
 
 	    if (lastUsedBufferInfo.vertexArrayObject) {
@@ -2284,7 +2295,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if (realShaders.length !== shaders.length) {
-	      programOptions.errorCallback("not enough shaders for program");
+	      progOptions.errorCallback("not enough shaders for program");
 	      deleteShaders(gl, newShaders);
 	      return null;
 	    }
@@ -4109,8 +4120,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * @property {number} [minMag] both the min and mag filter settings.
 	   * @property {number} [internalFormat] internal format for texture. Defaults to `gl.RGBA`
 	   * @property {number} [format] format for texture. Defaults to `gl.RGBA`.
-	   * @property {number} [type] type for texture. Defaults to `gl.UNSIGNED_BYTE` unless `src` is ArrayBuffer. If `src`
-	   *     is ArrayBuffer defaults to type that matches ArrayBuffer type.
+	   * @property {number} [type] type for texture. Defaults to `gl.UNSIGNED_BYTE` unless `src` is ArrayBufferView. If `src`
+	   *     is ArrayBufferView defaults to type that matches ArrayBufferView type.
 	   * @property {number} [wrap] Texture wrapping for both S and T (and R if TEXTURE_3D or WebGLSampler). Defaults to `gl.REPEAT` for 2D unless src is WebGL1 and src not npot and `gl.CLAMP_TO_EDGE` for cube
 	   * @property {number} [wrapS] Texture wrapping for S. Defaults to `gl.REPEAT` and `gl.CLAMP_TO_EDGE` for cube. If set takes precedence over `wrap`.
 	   * @property {number} [wrapT] Texture wrapping for T. Defaults to `gl.REPEAT` and `gl.CLAMP_TO_EDGE` for cube. If set takes precedence over `wrap`.
@@ -4129,7 +4140,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * @property {number} [colorspaceConversion] Whether or not to let the browser do colorspace conversion of the texture on upload. Defaults to whatever the current setting is.
 	   *     This lets you set it once before calling `twgl.createTexture` or `twgl.createTextures` and only override
 	   *     the current setting for specific textures.
-	   * @property {(number[]|ArrayBuffer)} color color used as temporary 1x1 pixel color for textures loaded async when src is a string.
+	   * @property {(number[]|ArrayBufferView)} color color used as temporary 1x1 pixel color for textures loaded async when src is a string.
 	   *    If it's a JavaScript array assumes color is 0 to 1 like most GL colors as in `[1, 0, 0, 1] = red=1, green=0, blue=0, alpha=0`.
 	   *    Defaults to `[0.5, 0.75, 1, 1]`. See {@link module:twgl.setDefaultTextureColor}. If `false` texture is set. Can be used to re-load a texture
 	   * @property {boolean} [auto] If `undefined` or `true`, in WebGL1, texture filtering is set automatically for non-power of 2 images and
@@ -4144,7 +4155,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   *      gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
 	   *      gl.TEXTURE_CUBE_MAP_NEGATIVE_Z]
 	   *
-	   * @property {(number[]|ArrayBuffer|HTMLCanvasElement|HTMLImageElement|HTMLVideoElement|string|string[]|module:twgl.TextureFunc)} [src] source for texture
+	   * @property {(number[]|ArrayBufferView|HTMLCanvasElement|HTMLImageElement|HTMLVideoElement|string|string[]|module:twgl.TextureFunc)} [src] source for texture
 	   *
 	   *    If `string` then it's assumed to be a URL to an image. The image will be downloaded async. A usable
 	   *    1x1 pixel texture will be returned immediatley. The texture will be updated once the image has downloaded.
@@ -4156,7 +4167,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   *    If `HTMLElement` then it wil be used immediately to create the contents of the texture. Examples `HTMLImageElement`,
 	   *    `HTMLCanvasElement`, `HTMLVideoElement`.
 	   *
-	   *    If `number[]` or `ArrayBuffer` it's assumed to be data for a texture. If `width` or `height` is
+	   *    If `number[]` or `ArrayBufferView` it's assumed to be data for a texture. If `width` or `height` is
 	   *    not specified it is guessed as follows. First the number of elements is computed by `src.length / numComponents`
 	   *    where `numComponents` is derived from `format`. If `target` is `gl.TEXTURE_CUBE_MAP` then `numElements` is divided
 	   *    by 6. Then
@@ -4365,7 +4376,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /**
 	   * Makes a 1x1 pixel
 	   * If no color is passed in uses the default color which can be set by calling `setDefaultTextureColor`.
-	   * @param {(number[]|ArrayBuffer)} [color] The color using 0-1 values
+	   * @param {(number[]|ArrayBufferView)} [color] The color using 0-1 values
 	   * @return {Uint8Array} Unit8Array with color.
 	   */
 	  function make1Pixel(color) {
@@ -4886,7 +4897,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * guess the size. See {@link module:twgl.TextureOptions}.
 	   * @param {WebGLRenderingContext} gl the WebGLRenderingContext
 	   * @param {WebGLTexture} tex the WebGLTexture to set parameters for
-	   * @param {(number[]|ArrayBuffer)} src An array or typed arry with texture data.
+	   * @param {(number[]|ArrayBufferView)} src An array or typed arry with texture data.
 	   * @param {module:twgl.TextureOptions} [options] A TextureOptions object with whatever parameters you want set.
 	   *   This is often the same options you passed in when you created the texture.
 	   * @memberOf module:twgl/textures
@@ -5978,12 +5989,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    dst[8] = 0;
 	    dst[9] = 0;
-	    dst[10] = -1 / (far - near);
+	    dst[10] = 2 / (near - far);
 	    dst[11] = 0;
 
 	    dst[12] = (right + left) / (left - right);
 	    dst[13] = (top + bottom) / (bottom - top);
-	    dst[14] = -near / (near - far);
+	    dst[14] = (far + near) / (near - far);
 	    dst[15] = 1;
 
 	    return dst;
@@ -7183,7 +7194,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 *
 	 * @module twgl/primitives
 	 */
-	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(2), __webpack_require__(4), __webpack_require__(10), __webpack_require__(11)], __WEBPACK_AMD_DEFINE_RESULT__ = function (attributes, utils, m4, v3) {
+	!(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(2), __webpack_require__(4), __webpack_require__(3), __webpack_require__(10), __webpack_require__(11)], __WEBPACK_AMD_DEFINE_RESULT__ = function (attributes, utils, typedArrays, m4, v3) {
 	  "use strict";
 
 	  var getArray = attributes.getArray_; // eslint-disable-line
@@ -7201,7 +7212,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    typedArray.push = function () {
 	      for (var ii = 0; ii < arguments.length; ++ii) {
 	        var value = arguments[ii];
-	        if (value instanceof Array || value.buffer && value.buffer instanceof ArrayBuffer) {
+	        if (value instanceof Array || typedArrays.isArrayBuffer(value)) {
 	          for (var jj = 0; jj < value.length; ++jj) {
 	            typedArray[cursor++] = value[jj];
 	          }
@@ -7241,7 +7252,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * @param {number} numComponents number of components
 	   * @param {number} numElements number of elements. The total size of the array will be `numComponents * numElements`.
 	   * @param {constructor} opt_type A constructor for the type. Default = `Float32Array`.
-	   * @return {ArrayBuffer} A typed array.
+	   * @return {ArrayBufferView} A typed array.
 	   * @memberOf module:twgl/primitives
 	   */
 	  function createAugmentedTypedArray(numComponents, numElements, opt_type) {
@@ -8726,9 +8737,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /**
 	   * Creates an array of the same time
 	   *
-	   * @param {(number[]|ArrayBuffer|module:twgl.FullArraySpec)} srcArray array who's type to copy
+	   * @param {(number[]|ArrayBufferView|module:twgl.FullArraySpec)} srcArray array who's type to copy
 	   * @param {number} length size of new array
-	   * @return {(number[]|ArrayBuffer|module:twgl.FullArraySpec)} array with same type as srcArray
+	   * @return {(number[]|ArrayBufferView|module:twgl.FullArraySpec)} array with same type as srcArray
 	   */
 	  function createArrayOfSameType(srcArray, length) {
 	    var arraySrc = getArray(srcArray);

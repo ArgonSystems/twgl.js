@@ -1,5 +1,44 @@
 #Changelist
 
+*   4.2.0
+
+    *   add `EXT_color_buffer_float`, `WEBGL_compressed_texture_s3tc_srgb`, and
+        `EXT_disjoint_timer_query_webgl2` to `twgl.addExtensionsToContext`.
+
+*   4.1.0
+
+    *   Added `twgl.glEnumToString`
+
+        This was an internal function used to make a few error
+        messages more useful but might as well
+        export it.
+
+    *   Fix bug in `resizeTexture` for WebGL2.
+
+*   4.0.1
+
+    *   Added check for built in uniforms and attributes
+
+*   4.0.0
+
+    *   Switch to es6 modules for source
+
+        Webpack still builds UMD version
+
+*   3.8.0
+
+    *   Add `SharedArrayBuffer` support
+
+*   3.7.1
+
+    *   Fix `ortho`
+
+*   3.7.0
+
+    *   Support instances with `drawBufferInfo` and `drawObjectList`.
+
+    *   Support passing a multiplier smaller than 1 to `resizeCanvasToDisplaySize`.
+
 *   3.6.0
 
     *   Added `twgl.addExtensionsToContext`
